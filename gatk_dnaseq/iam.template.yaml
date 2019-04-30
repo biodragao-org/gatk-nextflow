@@ -1,0 +1,689 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Deploys all resources for the GATK DNASeq pipeline
+
+Resources:
+  lambdaBatchExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  lambdaBatchExecutionPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: lambdaBatchExecutionPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: CloudWatchPolicy
+            Effect: Allow
+            Action:
+            - "logs:CreateLogGroup"
+            - "logs:CreateLogStream"
+            - "logs:PutLogEvents"
+            Resource:
+            - "*"
+          - Sid: S3Policy
+            Effect: Allow
+            Action:
+            - "s3:List*"
+            Resource:
+            - "*"
+          - Sid: LambdaPolicy
+            Effect: Allow
+            Action:
+            - "lambda:InvokeFunction"
+            Resource:
+            - "*"
+          - Sid: BatchPolicy
+            Effect: Allow
+            Action:
+            - "batch:DescribeJobs"
+            - "batch:ListJobs"
+            - "batch:SubmitJob"
+            Resource:
+            - "*"
+      Roles:
+      - !Ref lambdaBatchExecutionRole
+
+  ecsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "ecs-tasks.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+
+  ecsInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      - "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+
+  ecsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+      - !Ref ecsInstanceRole
+      InstanceProfileName: !Ref ecsInstanceRole
+
+  spotFleetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "spotfleet.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole"
+
+  awsBatchServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "batch.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+
+  computeEnvironmentSpot:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      Type: MANAGED
+      ServiceRole: !Ref awsBatchServiceRole
+      ComputeEnvironmentName: gatk-spot
+      ComputeResources:
+        SpotIamFleetRole: !Ref spotFleetRole
+        MaxvCpus: 720
+        BidPercentage: 40
+        SecurityGroupIds:
+          - sg-0a2d2d2be55b16574
+        Subnets:
+          - subnet-7f8c8f25
+          - subnet-2e34824a
+          - subnet-9bad24b7
+          - subnet-7dc4af36
+          - subnet-466de479
+          - subnet-c6c1d3ca
+        Type: SPOT
+        MinvCpus: 0
+        ImageId: ami-0b78d8942379e3ba6
+        InstanceRole: !Ref ecsInstanceRole
+        InstanceTypes:
+          - optimal
+        Ec2KeyPair: Goldfinch-Infrastructure01
+        PlacementGroup: String
+        Tags:
+          Name: "GATK DNASeq Spot"
+        DesiredvCpus: 0
+      State: ENABLED
+
+  jobQueueLowPriority:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      ComputeEnvironmentOrder:
+        - ComputeEnvironment: !Ref computeEnvironmentSpot
+          Order: 1
+      Priority: 1
+      State: ENABLED
+      JobQueueName: gatk-LowPriority
+
+  jobDefinitionSplitFlowcellAndLane:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 3500
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 1
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+      JobDefinitionName: gatk-splitflowcellandlane
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionConvertUBams:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 3500
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 2
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-convertunmappedbams
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionUBamIndex:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 3500
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 2
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+      JobDefinitionName: gatk-unmappedbamsindex
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionBWAVersion:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 1024
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 1
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+      JobDefinitionName: gatk-bwaversion
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionAlignment:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 14336
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 16
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+      JobDefinitionName: gatk-bwa
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionMergeBamAlignment:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 6500
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 16
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-mergebam
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionMarkDuplicates:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 7168
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 4
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-markduplicates
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionSortAndFixTags:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 5000
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 16
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-sortandfixtags
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionCreateSequenceGroupingTSV:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 2048
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 1
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/python:3.7-debian-buster
+      JobDefinitionName: gatk-sequencegrouping
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionBaseRecalibrator:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 6144
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 4
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-baserecalibrator
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionGatherBQSRReports:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 3500
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 4
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-gatherbqsr
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionApplyBQSR:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 5000
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 9
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-applybqsr
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionGatherBamFiles:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 3072
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 4
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-gatherbams
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionHaplotypeCaller:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 3072
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 4
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-haplotype
+      RetryStrategy:
+        Attempts: 3
+
+  jobDefinitionMergeGvcfs:
+    Type: "AWS::Batch::JobDefinition"
+    Properties:
+      Type: container
+      ContainerProperties:
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: docker_scratch
+            ContainerPath: /scratch
+          - ReadOnly: false
+            SourceVolume: tmpdir
+            ContainerPath: /tmp
+        Volumes:
+          - Host:
+              SourcePath: /cromwell_root
+            Name: docker_scratch
+          - Host:
+              SourcePath: /cromwell_root
+            Name: tmpdir
+        Memory: 3072
+        Privileged: false
+        Environment:
+          - Value: /tmp
+            Name: TMPDIR
+          - Value: 250,300
+            Name: ECS_TASK_METADATA_RPS_LIMIT
+        JobRoleArn: !Ref ecsTaskRole
+        ReadonlyRootFilesystem: false
+        Vcpus: 4
+        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+      JobDefinitionName: gatk-mergegvcfs
+      RetryStrategy:
+        Attempts: 3
+
+Outputs:
+  BatchServiceRole:
+    Value: !GetAtt awsBatchServiceRole.Arn
+  SpotFleetRole:
+    Value: !GetAtt spotFleetRole.Arn
+  EcsInstanceRole:
+    Value: !GetAtt ecsInstanceRole.Arn
+  EcsTaskRole:
+    Value: !GetAtt ecsTaskRole.Arn
+  LambdaBatchExecutionRole:
+    Value: !GetAtt lambdaBatchExecutionRole.Arn
