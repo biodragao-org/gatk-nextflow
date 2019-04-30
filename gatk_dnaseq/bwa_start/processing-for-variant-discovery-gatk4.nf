@@ -106,45 +106,6 @@ process MarkDuplicates {
     """
 }
 
-/*
-process SortAndFixTags {
-
-    input:
-    file input_bam from output_bam_markeddups
-    file ref_dict
-    file ref_fasta
-    file ref_fasta_index
-
-    output:
-    file "${sample_name}_sorted.bam" into output_bam_sorted
-    file "${sample_name}_sorted.bai" into output_bam_sorted_index
-    file "${sample_name}_sorted.bam.md5" into output_bam_sorted_md5
-
-    container "job-definition://gatk-sortandfixtags"
-
-    script:
-    """
-    set -o pipefail
-
-    ${gatk_path} --java-options "-Dsamjdk.compression_level=${compression_level} ${java_opt_sort}" \
-      SortSam \
-      --INPUT ${input_bam} \
-      --OUTPUT /dev/stdout \
-      --SORT_ORDER "coordinate" \
-      --CREATE_INDEX false \
-      --CREATE_MD5_FILE false \
-    | \
-    ${gatk_path} --java-options "-Dsamjdk.compression_level=${compression_level} ${java_opt_fix}" \
-      SetNmAndUqTags \
-      --INPUT /dev/stdin \
-      --OUTPUT ${sample_name}_sorted.bam \
-      --CREATE_INDEX true \
-      --CREATE_MD5_FILE true \
-      --REFERENCE_SEQUENCE ${ref_fasta}
-    """
-}
-*/
-
 process Sort {
 
     input:
@@ -321,9 +282,6 @@ process GatherBamFiles {
       --CREATE_MD5_FILE true
     """
 }
-
-//output_bam = file("s3://gfb-genomics/low_coverage_variants/gatk/bam/${sample_name}.bam")
-//output_bam_index = file("s3://gfb-genomics/low_coverage_variants/gatk/bam/${sample_name}.bai")
 
 idgen3 = Channel.from( 1 .. 50 )
 process HaplotypeCaller {

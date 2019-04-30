@@ -195,7 +195,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 1
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-splitflowcellandlane
       RetryStrategy:
         Attempts: 3
@@ -229,7 +229,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 2
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-convertunmappedbams
       RetryStrategy:
         Attempts: 3
@@ -263,7 +263,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 2
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-unmappedbamsindex
       RetryStrategy:
         Attempts: 3
@@ -297,7 +297,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 1
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-bwaversion
       RetryStrategy:
         Attempts: 3
@@ -331,7 +331,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 16
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:20190115
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-bwa
       RetryStrategy:
         Attempts: 3
@@ -365,7 +365,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 16
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-mergebam
       RetryStrategy:
         Attempts: 3
@@ -399,7 +399,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 4
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-markduplicates
       RetryStrategy:
         Attempts: 3
@@ -433,7 +433,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 16
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-sortandfixtags
       RetryStrategy:
         Attempts: 3
@@ -467,7 +467,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 1
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/python:3.7-debian-buster
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-sequencegrouping
       RetryStrategy:
         Attempts: 3
@@ -501,7 +501,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 4
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-baserecalibrator
       RetryStrategy:
         Attempts: 3
@@ -535,7 +535,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 4
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-gatherbqsr
       RetryStrategy:
         Attempts: 3
@@ -569,7 +569,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 9
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-applybqsr
       RetryStrategy:
         Attempts: 3
@@ -603,7 +603,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 4
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-gatherbams
       RetryStrategy:
         Attempts: 3
@@ -637,7 +637,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 4
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-haplotype
       RetryStrategy:
         Attempts: 3
@@ -671,7 +671,7 @@ Resources:
         JobRoleArn: !Ref ecsTaskRole
         ReadonlyRootFilesystem: false
         Vcpus: 4
-        Image: 227114915345.dkr.ecr.us-east-1.amazonaws.com/gatk:4.1.0.0
+        Image: 123456789.dkr.ecr.us-east-1.amazonaws.com/genomes-in-the-cloud:1.0.0
       JobDefinitionName: gatk-mergegvcfs
       RetryStrategy:
         Attempts: 3
