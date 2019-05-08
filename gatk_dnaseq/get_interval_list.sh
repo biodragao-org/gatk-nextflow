@@ -51,4 +51,5 @@ gsutil cp gs://genomics-public-data/resources/broad/hg38/v0/scattered_calling_in
 gsutil cp gs://genomics-public-data/resources/broad/hg38/v0/scattered_calling_intervals/temp_0049_of_50/scattered.interval_list scattered_49.interval_list
 gsutil cp gs://genomics-public-data/resources/broad/hg38/v0/scattered_calling_intervals/temp_0050_of_50/scattered.interval_list scattered_50.interval_list
 
-aws s3 sync . s3://gfb-genomics/broad-references/hg38/interval_list/
+aws s3 sync . s3://my-refdata/broad-references/hg38/interval_list/
+rm scattered_*.interval_list

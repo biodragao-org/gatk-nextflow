@@ -7,8 +7,8 @@ function runPipeline()
   FASTQ1=$2
   FASTQ2=$3
 
-  BASEOUTPUT=s3://gfb-genomics/low_coverage_variants/gatk_ubams
-  WORKDIR=s3://gfb-registry-workdir/low_coverage_variants/gatk_ubams
+  BASEOUTPUT=s3://my-data/ubams
+  WORKDIR=s3://my-workdir/ubams
 
   docker run --rm -v `pwd`:/mnt/data --workdir /mnt/data -e TMPDIR=/tmp -v ~/.aws:/root/.aws 227114915345.dkr.ecr.us-east-1.amazonaws.com/nextflow:19.04.0 \
   /usr/local/bin/nextflow run /mnt/data/processing-for-variant-discovery-gatk4_ubams.nf \
@@ -29,4 +29,4 @@ function runPipeline()
   aws s3 cp ${SAMPLE}_flowchart.png ${BASEOUTPUT}/${SAMPLE}/
 }
 
-runPipeline GRS-0026552 s3://gfb-registry-raw/controls/nist/human/dna/fastq/genome_in_a_bottle/illumina300x_.1333_R1.fastq.gz s3://gfb-registry-raw/controls/nist/human/dna/fastq/genome_in_a_bottle/illumina300x_.1333_R2.fastq.gz
+runPipeline GIAB40x s3://my-data/genome_in_a_bottle/illumina300x_.1333_R1.fastq.gz s3://my-data/genome_in_a_bottle/illumina300x_.1333_R2.fastq.gz
