@@ -1,7 +1,31 @@
 #! /usr/bin/env nextflow
 
+// Help message
+helpMessage = """
+===============================================================================
+gatk_dnaseq_pre/prepare_workflow : Create reference files for GATK v${version}
+===============================================================================
+Usage: nextflow prepare_workflow.nf --fasta_ref 's3://my-refdata/broad-references/hg38/GrCh38.fasta' --outpath s3://my-refdata/broad-references/hg38
+
+Output:
+--outpath                      Path where the results to be saved [Default: './results']
+
+Genome/Variation files:
+--fasta_ref                    Absolute path to genome fasta file
+
+For more detailed information regarding the parameters and usage refer to package
+documentation at https://github.com/goldfinchbio/gatk-nextflow/
+"""
+
 ref_dict = file( params.fasta_ref.replace(".fasta",".dict") )
 outpath = params.outpath
+params.help = false
+
+// Show help when needed
+if (params.help){
+    log.info helpMessage
+    exit 0
+}
 
 process CreateSequenceGroupingTSV {
 
